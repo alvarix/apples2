@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Splitwise Lite - Monthly with Tests</title>
+    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://unpkg.com/chai/chai.js"></script>
+    <script src="https://unpkg.com/mocha/mocha.js"></script>
+
+    <style>
+        #mocha {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body x-data="{ expenses: $persist([]), personA: 'Person A', personB: 'Person B', description: '', amount: 0, paidBy: 'A', date: new Date().toISOString().slice(0, 10), calculateMonthlyBalances() { let monthlyBalances = {}; this.expenses.forEach(expense => { let month = expense.date.slice(0, 7); if (!monthlyBalances[month]) { monthlyBalances[month] = { A: 0, B: 0 }; } if (expense.paidBy === 'A') { monthlyBalances[month].A += expense.amount; } else { monthlyBalances[month].B += expense.amount; } }); return monthlyBalances; } }">
+
+    <h1>Splitwise Lite - Monthly with Tests</h1>
+
+    <div>
+        <label for="personA">Person A Name:</label>
+        <input type="text" id="personA" x-model="personA">
+        <label for="personB">Person B Name:</label>
+        <input type="text" id="personB" x-model="personB">
+    </div>
+
+    <div>
+        <label for="description">Description:</label>
+        <input type="text" id="description" x-model="description">
+
+        <label for="amount">Amount:</label>
+        <input type="number" id="amount" x-model.amount>
+
+        <label for="paidBy">Paid By:</label>
+        <select id="paidBy" x-model="paidBy">
+            <option value="A" x-text="personA"></option>
+            <option value="B" x-text="personB"></option>
+        </select>
+
+        <label for="date">Date:</label>
+        <input type="date" id="date" x-model="date">
+
+        <button @click="expenses.push({ description: description, amount: parseFloat(amount), paidBy: paidBy, date: date }); description = ''; amount = 0; paidBy = 'A'; date = new Date().toISOString().slice(0, 10);">Add Expense</button>
+    </div>
+
+    <div>
+        <h2>Expenses</h2>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th>Amount</th>
+                    <th>Paid By</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                <template x-for="(expense, index) in expenses" :key="index">
+                    <tr>
+                        <td x-text="expense.description"></td>
+                        <td x-text="expense.amount"></td>
+                        <td x-text="expense.paidBy === 'A' ? personA : personB"></td>
+                        <td x-text="expense.date"></td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+
+    <div>
+        <h2>Monthly Balances</h2>
+        <template x-for="(month, balances) in calculateMonthlyBalances()">
+            <div>
+                <h3><span x-text="month"></span></h3>
+                <p x-text="balances.A - balances.B > 0 ? personA + ' owes ' + personB + ': $' + (balances.A - balances.B) : personB + ' owes ' + personA + ': $' + Math.abs(balances.A - balances.B)"></p>
+            </div>
+        </template>
+    </div>
+
+    <div id="mocha"></div>
+
+    <script>
+        mocha.setup('bdd');
+        const { assert } = chai;
+
+        describe('Splitwise Lite Tests', () => {
+
+            it('should calculate monthly balances correctly', () => {
+                const app = Alpine.reactive({
+                    expenses: [
+                        { description: 'Lunch', amount: 20, paidBy: 'A', date: '2023-10-15' },
+                        { description: 'Dinner', amount: 30, paidBy: 'B', date: '2023-10-20' },
+                        { description: 'Coffee', amount: 10, paidBy: 'A', date: '2023-11-05' },
+                    ],
+                    personA: 'Person A',
+                    personB: 'Person B',
+                    calculateMonthlyBalances() {
+                        let monthlyBalances = {};
+                        this.expenses.forEach(expense => {
+                            let month = expense.date.slice(0, 7);
+                            if (!monthlyBalances[month]) {
+                                monthlyBalances[month] = { A: 0, B: 0 };
+                            }
+                            if (expense.paidBy === 'A') {
+                                monthlyBalances[month].A += expense.amount;
+                            } else {
+                                monthlyBalances[month].B += expense.amount;
+                            }
+                        });
+                        return monthlyBalances;
+                    }
+                });
+
+                const balances = app.calculateMonthlyBalances();
+                assert.deepEqual(balances, {
+                    '2023-10': { A: 20, B: 30 },
+                    '2023-11': { A: 10, B: 0 }
+                });
+
+            });
+
+            it('should handle empty expenses', () => {
+                const app = Alpine.reactive({
+                    expenses: [],
+                    calculateMonthlyBalances() {
+                        let monthlyBalances = {};
+                        this.expenses.forEach(expense => {
+                            let month = expense.date.slice(0, 7);
+                            if (!monthlyBalances[month]) {
+                                monthlyBalances[month] = { A: 0, B: 0 };
+                            }
+                            if (expense.paidBy === 'A') {
+                                monthlyBalances[month].A += expense.amount;
+                            } else {
+                                monthlyBalances[month].B += expense.amount;
+                            }
+                        });
+                        return monthlyBalances;
+                    }
+                });
+
+                const balances = app.calculateMonthlyBalances();
+                assert.deepEqual(balances, {});
+            });
+        });
+
+        mocha.run();
+    </script>
+
+</body>
+</html>
